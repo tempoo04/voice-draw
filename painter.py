@@ -1,66 +1,23 @@
-import google.generativeai as genai
-import PIL.Image
-import requests
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
-from io import BytesIO
 from datetime import datetime
+from config import IMAGE_OUTPUT_DIR
+from services import describe_image_for_generation, download_generated_image
 
-load_dotenv()
-
-my_key_openai = os.getenv("openai_apikey")
-
-client = OpenAI(api_key = my_key_openai)
 
 def generate_image_with_dalle(prompt):
-
-    AI_Response = client.images.generate(
-        model = "dall-e-3",
-        size = "1024x1024",
-        quality="hd",
-        n = 1,
-        response_format="url",
-        prompt = prompt,
-    )
-
-    image_url = AI_Response.data[0].url
-
-    response = requests.get(image_url)
-    image_bytes = BytesIO(response.content)
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"./img/generated_image_{timestamp}.png"
+    filename = IMAGE_OUTPUT_DIR / f"generated_image_{timestamp}.png"
 
-    if not os.path.exists("./img"):
-        os.makedirs("./img")
+    IMAGE_OUTPUT_DIR.mkdir(exist_ok=True)
+    image_bytes = download_generated_image(prompt)
 
     with open(filename, "wb") as f:
         f.write(image_bytes.getbuffer())
 
-    return filename
+    return str(filename)
 
-my_key_google = os.getenv("google_apikey")
-genai.configure(api_key = my_key_google)
 
 def gemini_vision_with_local_file(image_path, prompt):
-
-    multimodality_prompt = f"""Gönderdiğim resmi, ek talimatlarla birlikte yeniden oluşturmanı istiyorum. Öncelikle resmi en ince detaylarına 
-    kadar tarif etmeni rica ediyorum. Daha sonra oluşturacağın bu metni, bir yapay zeka modeli aracılığıyla görsel oluşturmak için kullanacağım. 
-    Bu nedenle, cevabını verirken bunun bir resim oluşturma komutu (prompt) olarak kullanılacağını göz önünde bulundurmanı önemle rica ediyorum. 
-    İşte ek talimatım şu şekilde: {prompt}"""
-
-    client = genai.GenerativeModel(model_name = "gemini-pro-vision")
-    source_image = PIL.Image.open(image_path)
-    AI_Response = client.generate_content(
-        [
-            multimodality_prompt,
-            source_image
-        ]
-    )
-
-    AI_Response.resolve()
-    return AI_Response.text
+    return describe_image_for_generation(image_path, prompt)
 
 def generate_image(image_path, prompt):
 
