@@ -3,10 +3,11 @@ import threading
 import recorder
 import transcriptor
 import painter
+from config import APP_LAYOUT, APP_PAGE_TITLE, APP_TITLE, AUDIO_PROMPT_PATH, ICON_DIR
 
 if "record_active" not in st.session_state:
     st.session_state.record_active = threading.Event()
-    st.session_state.recording_status = "Baslamaya Haziriz!"
+    st.session_state.recording_status = "Baslamaya haziriz!"
     st.session_state.recording_completed = False
     st.session_state.latest_image = ""
     st.session_state.messages = []
@@ -18,18 +19,22 @@ def start_recording():
     st.session_state.recording_status = "Sesiniz Kaydediliyor..."
     st.session_state.recording_completed = False
 
-    threading.Thread(target = recorder.record, args=(st.session_state.record_active, st.session_state.frames)).start()
+    threading.Thread(
+        target=recorder.record,
+        args=(st.session_state.record_active, st.session_state.frames),
+        daemon=True,
+    ).start()
 
 def stop_recording():
     st.session_state.record_active.clear()
-    st.session_state.recoring_status = "Kayit Tamamlandi!"
+    st.session_state.recording_status = "Kayit tamamlandi!"
     st.session_state.recording_completed = True
 
 
 
-st.set_page_config(page_title="VoiceDraw",layout="wide", page_icon=".icon/app_icon.png")
-st.image(image="./icons/top_banner.png", use_column_width=True)
-st.title("VoiceDraw: Sesli Chizim")
+st.set_page_config(page_title=APP_PAGE_TITLE, layout=APP_LAYOUT, page_icon=str(ICON_DIR / "app_icon.png"))
+st.image(image=str(ICON_DIR / "top_banner.png"), use_container_width=True)
+st.title(f"{APP_TITLE}: Sesli Cizim")
 st.divider()
 
 col_audio, col_image = st.columns([1,4])
@@ -49,7 +54,7 @@ with col_audio:
         recorded_audio = st.empty()
 
         if st.session_state.recording_completed:
-            recorded_audio.audio(data="voice_prompt.wav")
+            recorded_audio.audio(data=str(AUDIO_PROMPT_PATH))
 
     st.divider()
     latest_image_use = st.checkbox(label = "Son Resmi Kullan")
@@ -61,25 +66,25 @@ with col_image:
     for message in st.session_state.messages:
 
         if message["role"] == "assistant":
-            with st.chat_message(name=message["role"], avatar="./icon/ai_avatar.png"):
-                st.warning("Sizin ichin Olusturdugum Görsel:")
+            with st.chat_message(name=message["role"], avatar=str(ICON_DIR / "ai_avatar.png")):
+                st.warning("Sizin icin olusturdugum gorsel:")
                 st.image(image=message["content"], width=300)
 
         elif message["role"] == "user":
-            with st.chat_message(name=message["role"], avatar="./icon/user_avatar.png"):
+            with st.chat_message(name=message["role"], avatar=str(ICON_DIR / "user_avatar.png")):
                 st.success(message["content"])
 
     if stop_btn:
-        with st.chat_message(name="role", avatar="./icon/user_avatar.png"):
-            voice_prompt = transcriptor.transcribe_with_whisper(audio_file_name="voice_prompt.wav")
+        with st.chat_message(name="user", avatar=str(ICON_DIR / "user_avatar.png")):
+            voice_prompt = transcriptor.transcribe_with_whisper(audio_file_name=str(AUDIO_PROMPT_PATH))
             st.success(voice_prompt)
 
 
         st.session_state.messages.append({"role":"user", "content": voice_prompt})
-        with st.chat_message(name="assistant", avatar = "./icon/ai_avatar.png"):
-            st.warning("Sizin ichin Olusturdugum Görsel:")
+        with st.chat_message(name="assistant", avatar=str(ICON_DIR / "ai_avatar.png")):
+            st.warning("Sizin icin olusturdugum gorsel:")
 
-            if latest_image_use:
+            if latest_image_use and st.session_state.latest_image:
                 image_file_name = painter.generate_image(image_path=st.session_state.latest_image, prompt=voice_prompt)
             else:
                 image_file_name = painter.generate_image_with_dalle(prompt=voice_prompt)
